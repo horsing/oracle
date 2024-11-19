@@ -27,6 +27,7 @@ type Config struct {
 	DefaultStringSize   uint
 	DBVer               string
 	NamingCaseSensitive bool // whether naming is case-sensitive
+	Quoter              func(string) string
 }
 
 type Dialector struct {
@@ -187,7 +188,11 @@ func (d Dialector) BindVarTo(writer clause.Writer, stmt *gorm.Statement, v inter
 }
 
 func (d Dialector) QuoteTo(writer clause.Writer, str string) {
-	writer.WriteString(str)
+	if d.Quoter != nil {
+		writer.WriteString(d.Quoter(str))
+	} else {
+		writer.WriteString(str)
+	}
 }
 
 var numericPlaceholder = regexp.MustCompile(`:(\d+)`)
@@ -207,9 +212,7 @@ func (d Dialector) Explain(sql string, vars ...interface{}) string {
 }
 
 func (d Dialector) DataTypeOf(field *schema.Field) string {
-	if _, found := field.TagSettings["RESTRICT"]; found {
-		delete(field.TagSettings, "RESTRICT")
-	}
+	delete(field.TagSettings, "RESTRICT")
 
 	var sqlType string
 
